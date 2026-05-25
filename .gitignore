@@ -1,0 +1,7 @@
+_etc
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+state/
+config.local.json

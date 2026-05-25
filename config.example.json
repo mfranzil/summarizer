@@ -1,0 +1,86 @@
+{
+  "miniflux": {
+    "base_url": "https://reader.mfranzil.com",
+    "api_token": "replace-me"
+  },
+  "telegram": {
+    "bot_token": "replace-me",
+    "chat_id": "replace-me",
+    "auto_create_topics": true
+  },
+  "state": {
+    "path": "state/router-state.json"
+  },
+  "polling": {
+    "interval_seconds": 300,
+    "lookback_hours": 24,
+    "page_limit": 500
+  },
+  "defaults": {
+    "mode": "direct"
+  },
+  "policies": [
+    {
+      "feed_title": "Threatpost",
+      "mode": "mute"
+    },
+    {
+      "feed_title": "Ctrl blog",
+      "mode": "mute"
+    },
+    {
+      "feed_title": "Railway Gazette RSS Feed",
+      "mode": "mute"
+    },
+    {
+      "feed_title": "Hacker News: Front Page",
+      "mode": "digest",
+      "digest": {
+        "window_hours": 12,
+        "max_items": 25,
+        "title": "Hacker News Digest",
+        "similarity_threshold": 0.72
+      }
+    },
+    {
+      "feed_title": "Sportando",
+      "mode": "digest",
+      "digest": {
+        "window_hours": 12,
+        "max_items": 25,
+        "title": "Sportando Digest",
+        "similarity_threshold": 0.72
+      }
+    },
+    {
+      "feed_title": "L'Adige",
+      "mode": "digest",
+      "digest": {
+        "window_hours": 12,
+        "max_items": 20,
+        "title": "L'Adige Digest",
+        "similarity_threshold": 0.75
+      }
+    },
+    {
+      "feed_title": "The Verge -  All Posts",
+      "mode": "digest",
+      "digest": {
+        "window_hours": 12,
+        "max_items": 20,
+        "title": "The Verge Digest",
+        "similarity_threshold": 0.72
+      }
+    },
+    {
+      "feed_title": "Unione Sarda RSS Feed",
+      "mode": "digest",
+      "digest": {
+        "window_hours": 12,
+        "max_items": 30,
+        "title": "Unione Sarda Digest",
+        "similarity_threshold": 0.76
+      }
+    }
+  ]
+}
