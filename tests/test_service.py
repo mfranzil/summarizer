@@ -68,6 +68,28 @@ def make_entry(feed_title: str) -> Entry:
 
 
 class ServiceTests(unittest.TestCase):
+    def test_entry_from_state_accepts_missing_comments_url(self) -> None:
+        raw = {
+            "id": 1,
+            "title": "Hello",
+            "url": "https://example.com/hello",
+            "published_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "content": None,
+            "feed": {
+                "id": 1,
+                "title": "Feed A",
+                "site_url": "https://example.com",
+                "feed_url": "https://example.com/feed",
+                "category_title": None,
+            },
+        }
+        from src.feed_router.service import _entry_from_state
+
+        entry = _entry_from_state(raw)
+
+        self.assertIsNone(entry.comments_url)
+
     def test_unmatched_feed_routes_to_auto_created_topic(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             state_path = Path(tmpdir) / "state.json"

@@ -55,6 +55,7 @@ def _entry_from_state(raw: dict) -> Entry:
         id=int(raw["id"]),
         title=raw["title"],
         url=raw["url"],
+        comments_url=raw.get("comments_url") or None,
         published_at=datetime.fromisoformat(raw["published_at"]),
         created_at=datetime.fromisoformat(raw["created_at"]),
         content=raw.get("content"),
@@ -86,6 +87,8 @@ class RouterService:
         for entry in entries:
             self._handle_entry(entry)
             self.state.last_processed_entry_id = max(self.state.last_processed_entry_id, entry.id)
+            if not self.dry_run:
+                save_state(self.config.state_path, self.state)
 
         self._flush_due_digests()
         if self.dry_run:
