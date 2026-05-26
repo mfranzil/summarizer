@@ -17,9 +17,12 @@ class RecordingTelegramClient:
         self.recent_topics = []
         self.sent_messages = []
         self.sent_entries = []
+        self.edited_topics = []
         self.fail_missing_thread_ids = set()
+        self.fail_invalid_topic_ids = set()
+        self.fail_not_modified_topic_ids = set()
 
-    def create_forum_topic(self, chat_id: str, name: str) -> ForumTopic:
+    def create_forum_topic(self, chat_id: str, name: str, *, icon_custom_emoji_id=None) -> ForumTopic:
         self.created_topics.append((chat_id, name))
         return ForumTopic(message_thread_id=1000 + len(self.created_topics), name=name)
 
@@ -41,16 +44,27 @@ class RecordingTelegramClient:
     def get_recent_forum_topics(self, chat_id: str):
         return list(self.recent_topics)
 
+    def edit_forum_topic(self, chat_id: str, message_thread_id: int, *, icon_custom_emoji_id=None) -> None:
+        if message_thread_id in self.fail_invalid_topic_ids:
+            raise TelegramAPIError("editForumTopic", 400, "Bad Request: TOPIC_ID_INVALID")
+        if message_thread_id in self.fail_not_modified_topic_ids:
+            raise TelegramAPIError("editForumTopic", 400, "Bad Request: TOPIC_NOT_MODIFIED")
+        self.edited_topics.append((chat_id, message_thread_id, icon_custom_emoji_id))
+
 
 class StubMinifluxClient:
     def __init__(self, entries=None):
         self.entries = list(entries or [])
+        self.feeds_by_title = {entry.feed.title: entry.feed for entry in self.entries}
 
     def get_feeds(self):
         return []
 
     def get_entries(self, after_unix: int, limit: int):
         return list(self.entries)
+
+    def get_feed_by_title(self, title: str):
+        return self.feeds_by_title.get(title)
 
 
 def make_entry(feed_title: str) -> Entry:
@@ -63,7 +77,13 @@ def make_entry(feed_title: str) -> Entry:
         published_at=now,
         created_at=now,
         content=None,
-        feed=FeedRef(id=1, title=feed_title, site_url="https://example.com", feed_url="https://example.com/feed"),
+        feed=FeedRef(
+            id=1,
+            title=feed_title,
+            site_url="https://example.com",
+            feed_url="https://example.com/feed",
+            category_title="News",
+        ),
     )
 
 
@@ -139,7 +159,7 @@ class ServiceTests(unittest.TestCase):
             service = RouterService(config)
             service.telegram = RecordingTelegramClient()
             service.telegram.recent_topics = [ForumTopic(message_thread_id=42, name="Feed A")]
-            service.miniflux = StubMinifluxClient()
+            service.miniflux = StubMinifluxClient([make_entry("Feed A")])
 
             service._handle_entry(make_entry("Feed A"))
 
@@ -215,6 +235,7 @@ class ServiceTests(unittest.TestCase):
             )
             service = RouterService(config)
             service.telegram = RecordingTelegramClient()
+            service.miniflux = StubMinifluxClient([make_entry("Feed A")])
             service.telegram.fail_missing_thread_ids = {22}
             service.telegram.recent_topics = [ForumTopic(message_thread_id=22, name="Feed A")]
             service.state.forum_topic_ids = {"12345:Feed A": 22}
@@ -225,6 +246,119 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(service.state.forum_topic_ids["12345:Feed A"], 1001)
         self.assertIn(22, service.state.deleted_forum_topic_ids["12345"])
         self.assertEqual(service.telegram.sent_entries[-1][0].message_thread_id, 1001)
+
+    def test_sync_topic_icons_updates_existing_topics_in_place(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = AppConfig(
+                miniflux_base_url="https://reader.example.com",
+                miniflux_api_token="token",
+                telegram_bot_token="bot-token",
+                telegram_default_chat_id="12345",
+                telegram_auto_create_topics=True,
+                state_path=Path(tmpdir) / "state.json",
+                interval_seconds=300,
+                lookback_hours=24,
+                page_limit=100,
+                default_mode="direct",
+                policies=(),
+            )
+            service = RouterService(config)
+            service.telegram = RecordingTelegramClient()
+            service.miniflux = StubMinifluxClient([make_entry("Feed A")])
+            service.state.forum_topic_ids = {"12345:Feed A": 42}
+
+            service.sync_topic_icons()
+
+        self.assertEqual(
+            service.telegram.edited_topics,
+            [("12345", 42, "5434144690511290129")],
+        )
+
+    def test_sync_topic_icons_falls_back_to_recent_topics_when_state_is_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = AppConfig(
+                miniflux_base_url="https://reader.example.com",
+                miniflux_api_token="token",
+                telegram_bot_token="bot-token",
+                telegram_default_chat_id="12345",
+                telegram_auto_create_topics=True,
+                state_path=Path(tmpdir) / "state.json",
+                interval_seconds=300,
+                lookback_hours=24,
+                page_limit=100,
+                default_mode="direct",
+                policies=(),
+            )
+            service = RouterService(config)
+            service.telegram = RecordingTelegramClient()
+            service.miniflux = StubMinifluxClient([make_entry("Feed A")])
+            service.telegram.recent_topics = [ForumTopic(message_thread_id=77, name="Feed A")]
+
+            service.sync_topic_icons()
+
+        self.assertEqual(
+            service.telegram.edited_topics,
+            [("12345", 77, "5434144690511290129")],
+        )
+
+    def test_sync_topic_icons_skips_invalid_cached_topics_and_continues(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = AppConfig(
+                miniflux_base_url="https://reader.example.com",
+                miniflux_api_token="token",
+                telegram_bot_token="bot-token",
+                telegram_default_chat_id="12345",
+                telegram_auto_create_topics=True,
+                state_path=Path(tmpdir) / "state.json",
+                interval_seconds=300,
+                lookback_hours=24,
+                page_limit=100,
+                default_mode="direct",
+                policies=(),
+            )
+            service = RouterService(config)
+            service.telegram = RecordingTelegramClient()
+            service.miniflux = StubMinifluxClient([make_entry("Feed A"), make_entry("Feed B")])
+            service.telegram.fail_invalid_topic_ids = {42}
+            service.state.forum_topic_ids = {"12345:Feed A": 42, "12345:Feed B": 43}
+
+            service.sync_topic_icons()
+
+        self.assertEqual(
+            service.telegram.edited_topics,
+            [("12345", 43, "5434144690511290129")],
+        )
+        self.assertEqual(service.state.forum_topic_ids, {"12345:Feed B": 43})
+        self.assertEqual(service.state.deleted_forum_topic_ids, {"12345": [42]})
+
+    def test_sync_topic_icons_ignores_not_modified_topics(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = AppConfig(
+                miniflux_base_url="https://reader.example.com",
+                miniflux_api_token="token",
+                telegram_bot_token="bot-token",
+                telegram_default_chat_id="12345",
+                telegram_auto_create_topics=True,
+                state_path=Path(tmpdir) / "state.json",
+                interval_seconds=300,
+                lookback_hours=24,
+                page_limit=100,
+                default_mode="direct",
+                policies=(),
+            )
+            service = RouterService(config)
+            service.telegram = RecordingTelegramClient()
+            service.miniflux = StubMinifluxClient([make_entry("Feed A"), make_entry("Feed B")])
+            service.telegram.fail_not_modified_topic_ids = {42}
+            service.state.forum_topic_ids = {"12345:Feed A": 42, "12345:Feed B": 43}
+
+            service.sync_topic_icons()
+
+        self.assertEqual(
+            service.telegram.edited_topics,
+            [("12345", 43, "5434144690511290129")],
+        )
+        self.assertEqual(service.state.forum_topic_ids, {"12345:Feed A": 42, "12345:Feed B": 43})
 
 
 if __name__ == "__main__":

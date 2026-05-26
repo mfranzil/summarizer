@@ -79,3 +79,9 @@ class MinifluxClient:
                 )
             )
         return feeds
+
+    def get_feed_by_title(self, title: str) -> FeedRef | None:
+        for feed in self.get_feeds():
+            if feed.title == title:
+                return feed
+        return None
