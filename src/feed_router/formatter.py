@@ -67,19 +67,19 @@ def group_digest_items(entries: list[Entry], digest: DigestConfig) -> list[Diges
 
 
 def format_digest(entries: list[Entry], digest: DigestConfig, feed_title: str) -> str:
-    title = digest.title or f"{feed_title} Digest"
+    title = _escape_html(digest.title) if digest.title else f"{_escape_html(feed_title)} Digest"
     lines = [title]
     groups = group_digest_items(entries, digest)
     for group in groups[: digest.max_items]:
         representative = group.representative
         if len(group.entries) == 1:
-            lines.append(f"- {representative.title}")
-            lines.append(f"  {representative.url}")
+            lines.append(f"- {_escape_html(representative.title)}")
+            lines.append(f"  {_escape_html(representative.url)}")
             continue
-        sources = ", ".join(sorted({entry.feed.title for entry in group.entries}))
-        lines.append(f"- {representative.title} ({len(group.entries)} items)")
+        sources = ", ".join(sorted({_escape_html(entry.feed.title) for entry in group.entries}))
+        lines.append(f"- {_escape_html(representative.title)} ({len(group.entries)} items)")
         lines.append(f"  Sources: {sources}")
-        lines.append(f"  {representative.url}")
+        lines.append(f"  {_escape_html(representative.url)}")
 
     message = "\n".join(lines)
     if len(message) <= _TELEGRAM_MESSAGE_LIMIT:
@@ -110,12 +110,12 @@ def format_digest(entries: list[Entry], digest: DigestConfig, feed_title: str) -
 def _format_digest_group(group: DigestGroup) -> list[str]:
     representative = group.representative
     if len(group.entries) == 1:
-        return [f"- {representative.title}", f"  {representative.url}"]
-    sources = ", ".join(sorted({entry.feed.title for entry in group.entries}))
+        return [f"- {_escape_html(representative.title)}", f"  {_escape_html(representative.url)}"]
+    sources = ", ".join(sorted({_escape_html(entry.feed.title) for entry in group.entries}))
     return [
-        f"- {representative.title} ({len(group.entries)} items)",
+        f"- {_escape_html(representative.title)} ({len(group.entries)} items)",
         f"  Sources: {sources}",
-        f"  {representative.url}",
+        f"  {_escape_html(representative.url)}",
     ]
 
 

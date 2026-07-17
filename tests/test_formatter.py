@@ -52,6 +52,15 @@ class FormatterTests(unittest.TestCase):
         self.assertLessEqual(len(text), 4096)
         self.assertIn("... and ", text)
 
+    def test_format_digest_escapes_html_in_titles(self) -> None:
+        digest = DigestConfig(window_hours=12, max_items=10, title="<b>Digest</b>")
+        entry = make_entry(1, '<usermedia>Hello</usermedia>', 'https://example.com/a?x=1&y=2')
+        text = format_digest([entry], digest, "Feed")
+        self.assertNotIn("<usermedia>", text)
+        self.assertNotIn("<b>", text)
+        self.assertIn("&lt;usermedia&gt;", text)
+        self.assertIn("&amp;y=2", text)
+
     def test_format_direct_uses_html_link_and_preview(self) -> None:
         entry = make_entry(1, "Hello", "https://example.com/a")
         entry = Entry(
