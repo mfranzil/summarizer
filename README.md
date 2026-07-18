@@ -1,100 +1,175 @@
-# Telegram Feed Router
+# Miniflux Telegram Router
 
-Local Miniflux-to-Telegram delivery service.
+Miniflux is good at collecting feeds. Telegram is good for viewing them.
+Unfortunately, Miniflux does not make a good job in delivering feeds to a
+Telegram group. This project connects the two: it polls Miniflux, applies a
+small set of per-feed rules, and delivers entries to forum
+topics inside that chat.
 
-This MVP:
+The service does not modify Miniflux, does not expose an HTTP endpoint, nor
+wants to be yet another feed reader. Using a simple JSON file, it reads the
+Miniflux API token and the Telegram bot token, and uses them to fetch new
+entries and send them to the configured chat, automatically creating topics for
+feeds that do not have one.
 
-- polls Miniflux via API token
-- discovers feeds from Miniflux
-- routes by feed title
-- supports `direct`, `digest`, and `mute` policies
-- auto-creates Telegram forum topics per feed
-- supports dry-run mode
-- persists local state
-- sends to Telegram chats or topics
-- formats direct messages with previews and inline buttons
+## But why I need it?
 
-## Files
+Miniflux by default has a Telegram integration that sends each new entry to a
+single chat.  As of July 2026, there is a "topic ID" option, but it simply sends
+all entries to the same topic. This is not ideal for feeds that have many
+entries per day, or for feeds that are not related to each other.
 
-- `config.example.json`: example configuration
-- `src/feed_router/`: implementation
-- `tests/`: unit tests
+This project addresses that by allowing per-feed policies.
+Each feed is matched by its exact Miniflux title. A feed can be sent one entry
+at a time (`direct`), collected into periodic summaries (`digest`), or ignored
+(`mute`). When automatic topics are enabled, a topic is created for each feed
+and its ID is saved in the state file so restarts do not create duplicates.
 
-## Run
+Direct messages use Telegram HTML formatting, link previews, and buttons for the
+entry and, when available, its comments (e.g., Hacker News). Digest messages
+group similar titles together and send a single message with a list of links.
+The digest title can be customized, and the similarity threshold can be adjusted
+to control how many entries are grouped together.  When the number of entries
+exceeds the configured maximum, the oldest entries are dropped from the digest.
+
+## Requirements
+
+- Python 3.10 or newer, or Docker
+- A Miniflux instance and an API token
+- A Telegram bot
+- A Telegram forum-enabled supergroup where the bot can create and manage topics
+
+The bot cannot create the group itself. Add it to an existing supergroup and
+give it the permissions needed to manage topics and send messages.
+
+## Setup with Python
+
+Create a virtual environment and install the project:
 
 ```bash
-python3 -m src.feed_router.cli --config config.local.json run-once
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -e .
 ```
 
-Set the log level explicitly when needed:
+Create a private configuration file and fill in the credentials:
 
 ```bash
-python3 -m src.feed_router.cli --config config.local.json --log-level DEBUG run-once
+cp config.example.json config.local.json
 ```
 
-Use a forum-enabled Telegram supergroup and make the bot an admin with topic management rights.
-Bots can't create new chats or channels, but they can create forum topics inside an existing chat.
-
-For a simple loop:
+The example starts with `defaults.mode` set to `mute`, which is a safe choice
+for a new installation. Add a policy for each feed that should be delivered.
+Feed titles must match Miniflux exactly. Then make a first one-shot run:
 
 ```bash
-python3 -m src.feed_router.cli --config config.local.json run-loop
+feed-router --config config.local.json run-once
 ```
 
-To delete recent bot-created forum topics in the configured chat:
+Once that works, use the polling loop:
 
 ```bash
-python3 -m src.feed_router.cli --config config.local.json cleanup-topics
+feed-router --config config.local.json run-loop
 ```
 
-To update existing topic icons in place based on the current category mapping:
+The module form is also available when running directly from the repository:
 
 ```bash
-python3 -m src.feed_router.cli --config config.local.json sync-topic-icons
+python -m src.feed_router.cli --config config.local.json run-once
 ```
 
-To see what would be sent without calling Telegram:
+## Configuration
+
+A sample configuration is shown in `config.example.json`. Some notes:
+
+- `telegram.chat_id` is the default destination. A policy can override it with
+  a `target` containing `chat_id` and, optionally, `message_thread_id`.
+- `telegram.auto_create_topics` controls whether feeds without an explicit
+  thread are assigned their own forum topic.
+- `defaults.mode` is used for feeds without a policy. It can be set to `mute` (= ignore),
+  `direct` (= send each entry immediately), or `digest` (= collect entries into a summary).
+- A digest policy requires `window_hours` and `max_items`. Its optional title
+  and similarity threshold control the resulting summary.
+- `state.path` should point to persistent storage. Losing the state file can:
+  - Make old entries be delivered again, and
+  - Recreate topics that already exist (the topic name is not an ID, and the service does not check for duplicates)
+
+
+### Topic icons
+
+Topic icons are optional Telegram custom emojis. Map an exact Miniflux category
+title to its Telegram custom-emoji ID in the top-level `category_icons` object:
+
+```json
+{
+  "category_icons": {
+    "News": "5434144690511290129"
+  }
+}
+```
+
+To obtain the ID of a custom emoji, send it to the bot and read the
+`message.entities` field in the JSON update. The ID is a 19-digit number.
+Categories without a map are left without a custom icon. Existing topics can be
+updated after changing the mapping with:
 
 ```bash
-python3 -m src.feed_router.cli --config config.local.json --dry-run run-once
+feed-router --config config.local.json sync-topic-icons
+```
+
+## Commands and dry runs
+
+`run-once` polls Miniflux once, `run-loop` repeats it at the configured
+interval, `cleanup-topics` deletes recent bot-created topics in the default
+chat, and `sync-topic-icons` updates cached topics using the category map.
+
+Use `--log-level DEBUG` when diagnosing feed matching or topic reuse:
+
+```bash
+feed-router --config config.local.json --log-level DEBUG run-once
+```
+
+Dry-run mode still reads Miniflux, but prints planned deliveries and topic
+operations instead of calling Telegram. It does not write router state:
+
+```bash
+feed-router --config config.local.json --dry-run run-once
 ```
 
 ## Docker
 
-Build locally:
+Build the image locally:
 
 ```bash
 docker build -t miniflux-telegram-router .
 ```
 
-Example `docker-compose.yml` service using GHCR:
+The `config.local.json` and the `/state` directory can be mounted into the container
+to persist the state:
 
-```yaml
-services:
-  miniflux-telegram-router:
-    image: ghcr.io/<owner>/summarizer:latest
-    restart: unless-stopped
-    command: ["--config", "/data/config.local.json", "--log-level", "INFO", "run-loop"]
-    volumes:
-      - ./config.local.json:/data/config.local.json:ro
-      - ./state:/data/state
+```bash
+mkdir -p state
+docker run --rm \
+  -v "$PWD/config.local.json:/data/config.local.json:ro" \
+  -v "$PWD/state:/data/state" \
+  miniflux-telegram-router \
+  --config /data/config.local.json run-once
 ```
 
-Your config should use a state path under the mounted volume, for example `/data/state/router-state.json`.
+For continuous operation, use `--restart unless-stopped` and replace
+`run-once` with `run-loop`. The image published by GitHub Actions is available
+at `ghcr.io/mfranzil/summarizer`. No tags are published yet, so use `:master` to get the latest build.
 
-Dry-run still calls Miniflux so it needs valid Miniflux credentials.
-It skips Telegram delivery and does not write router state.
+## Development
 
-## Notes
+The runtime has no third-party Python dependencies. Run the test suite with
+the standard library:
 
-- Feed matching is by exact Miniflux feed title.
-- `telegram.chat_id` is the default destination; per-feed topics are created automatically and cached in state.
-- New topics get a category-based Telegram topic icon when the Miniflux category maps to one of Telegram's allowed forum-topic emoji stickers.
-- Topic IDs are saved immediately after creation, and recent bot-created topics are reused when possible if local state is missing.
-- Policies are meant to be overrides for `mute`, `digest`, or rare custom targets.
-- Telegram requests are paced and honor Bot API `retry_after` backoff on `429` responses.
-- Direct delivery uses HTML formatting, Telegram link previews, an `Open` button, and a `Comments` button when Miniflux provides `comments_url`.
-- Logging is enabled by default at `INFO` level and can be raised to `DEBUG` with `--log-level DEBUG`.
-- Digest messages are grouped per configured policy and collapse similar titles into one digest item.
-- State is stored locally as JSON.
-- No server-side changes are required.
+```bash
+python -m unittest discover -s tests -v
+```
+
+The project is available under the MIT license. Contributions should keep the
+footprint small (ideally, I would like to submit this to the main Miniflux
+repository) and include a regression test for changes to routing or message
+formatting.

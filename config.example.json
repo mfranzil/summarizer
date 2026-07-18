@@ -1,13 +1,14 @@
 {
   "miniflux": {
-    "base_url": "https://reader.mfranzil.com",
+    "base_url": "https://miniflux.example.com",
     "api_token": "replace-me"
   },
   "telegram": {
     "bot_token": "replace-me",
-    "chat_id": "replace-me",
+    "chat_id": "-1000000000000",
     "auto_create_topics": true
   },
+  "category_icons": {},
   "state": {
     "path": "state/router-state.json"
   },
@@ -17,69 +18,21 @@
     "page_limit": 500
   },
   "defaults": {
-    "mode": "direct"
+    "mode": "mute"
   },
   "policies": [
     {
-      "feed_title": "Threatpost",
-      "mode": "mute"
+      "feed_title": "Example feed",
+      "mode": "direct"
     },
     {
-      "feed_title": "Ctrl blog",
-      "mode": "mute"
-    },
-    {
-      "feed_title": "Railway Gazette RSS Feed",
-      "mode": "mute"
-    },
-    {
-      "feed_title": "Hacker News: Front Page",
+      "feed_title": "Another example feed",
       "mode": "digest",
       "digest": {
         "window_hours": 4,
         "max_items": 25,
-        "title": "Hacker News Digest",
+        "title": "Example digest",
         "similarity_threshold": 0.72
-      }
-    },
-    {
-      "feed_title": "Sportando",
-      "mode": "digest",
-      "digest": {
-        "window_hours": 4,
-        "max_items": 25,
-        "title": "Sportando Digest",
-        "similarity_threshold": 0.72
-      }
-    },
-    {
-      "feed_title": "L'Adige",
-      "mode": "digest",
-      "digest": {
-        "window_hours": 6,
-        "max_items": 20,
-        "title": "L'Adige Digest",
-        "similarity_threshold": 0.75
-      }
-    },
-    {
-      "feed_title": "The Verge -  All Posts",
-      "mode": "digest",
-      "digest": {
-        "window_hours": 6,
-        "max_items": 20,
-        "title": "The Verge Digest",
-        "similarity_threshold": 0.72
-      }
-    },
-    {
-      "feed_title": "Unione Sarda RSS Feed",
-      "mode": "digest",
-      "digest": {
-        "window_hours": 4,
-        "max_items": 30,
-        "title": "Unione Sarda Digest",
-        "similarity_threshold": 0.76
       }
     }
   ]

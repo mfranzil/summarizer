@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +41,7 @@ class AppConfig:
     page_limit: int
     default_mode: str
     policies: tuple[Policy, ...]
+    category_icons: dict[str, str] = field(default_factory=dict)
 
 
 def _load_target(data: dict[str, Any] | None) -> Target | None:
@@ -88,4 +89,8 @@ def load_config(path: str | Path) -> AppConfig:
         page_limit=int(raw["polling"].get("page_limit", 500)),
         default_mode=raw.get("defaults", {}).get("mode", "mute"),
         policies=policies,
+        category_icons={
+            str(category): str(icon_id)
+            for category, icon_id in raw.get("category_icons", {}).items()
+        },
     )

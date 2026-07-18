@@ -16,18 +16,6 @@ from .telegram import TelegramAPIError, TelegramClient
 logger = logging.getLogger(__name__)
 
 
-_CATEGORY_TOPIC_ICON_IDS = {
-    "News": "5434144690511290129",
-    "News-LowPri": "5434144690511290129",
-    "TechCS": "5350554349074391003",
-    "TechCS-LowPri": "5350554349074391003",
-    "Railways": "5350497316203668441",
-    "Switzerland": "5418196338774907917",
-    "FIP": "5384327463629233871",
-    "FIP-LowPri": "5384327463629233871",
-}
-
-
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -47,10 +35,10 @@ def _topic_name(feed_title: str) -> str:
     return normalized[:128]
 
 
-def _topic_icon_id(category_title: str | None) -> str | None:
+def _topic_icon_id(category_title: str | None, category_icons: dict[str, str]) -> str | None:
     if category_title is None:
         return None
-    return _CATEGORY_TOPIC_ICON_IDS.get(category_title)
+    return category_icons.get(category_title)
 
 
 def _entry_to_state(entry: Entry) -> dict:
@@ -208,7 +196,7 @@ class RouterService:
                 continue
             feed_title = key.split(":", 1)[1]
             category_title = self._feed_category_title(feed_title)
-            icon_custom_emoji_id = _topic_icon_id(category_title)
+            icon_custom_emoji_id = _topic_icon_id(category_title, self.config.category_icons)
             if icon_custom_emoji_id is None:
                 logger.debug("no topic icon mapping for feed=%s category=%s", feed_title, category_title)
                 continue
@@ -457,7 +445,7 @@ class RouterService:
         topic = self.telegram.create_forum_topic(
             chat_id,
             name,
-            icon_custom_emoji_id=_topic_icon_id(category_title),
+            icon_custom_emoji_id=_topic_icon_id(category_title, self.config.category_icons),
         )
         self.state.forum_topic_ids[key] = topic.message_thread_id
         self._recent_topics_by_chat.setdefault(chat_id, []).append(topic)

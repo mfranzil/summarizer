@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from .models import Entry, FeedRef
 
 
-_USER_AGENT = "Mozilla/5.0 (compatible; MinifluxTelegramRouter/1.0; +https://reader.mfranzil.com)"
+_USER_AGENT = "MinifluxTelegramRouter/0.1"
 
 
 def _parse_dt(value: str) -> datetime:

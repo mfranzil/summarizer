@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "miniflux-telegram-router"
+version = "0.1.0"
+description = "Route Miniflux feed entries to Telegram chats and forum topics"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Matteo Franzil" },
+]
+dependencies = []
+
+[project.scripts]
+feed-router = "feed_router.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

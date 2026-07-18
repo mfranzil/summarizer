@@ -261,6 +261,7 @@ class ServiceTests(unittest.TestCase):
                 page_limit=100,
                 default_mode="direct",
                 policies=(),
+                category_icons={"News": "5434144690511290129"},
             )
             service = RouterService(config)
             service.telegram = RecordingTelegramClient()
@@ -288,6 +289,7 @@ class ServiceTests(unittest.TestCase):
                 page_limit=100,
                 default_mode="direct",
                 policies=(),
+                category_icons={"News": "5434144690511290129"},
             )
             service = RouterService(config)
             service.telegram = RecordingTelegramClient()
@@ -315,6 +317,7 @@ class ServiceTests(unittest.TestCase):
                 page_limit=100,
                 default_mode="direct",
                 policies=(),
+                category_icons={"News": "5434144690511290129"},
             )
             service = RouterService(config)
             service.telegram = RecordingTelegramClient()
@@ -345,6 +348,7 @@ class ServiceTests(unittest.TestCase):
                 page_limit=100,
                 default_mode="direct",
                 policies=(),
+                category_icons={"News": "5434144690511290129"},
             )
             service = RouterService(config)
             service.telegram = RecordingTelegramClient()

@@ -17,6 +17,9 @@ class ConfigTests(unittest.TestCase):
                 "bot_token": "bot-token",
                 "chat_id": "12345",
             },
+            "category_icons": {
+                "News": 5434144690511290129,
+            },
             "state": {
                 "path": "state/router-state.json",
             },
@@ -45,6 +48,7 @@ class ConfigTests(unittest.TestCase):
             config = load_config(path)
         self.assertEqual(config.telegram_default_chat_id, "12345")
         self.assertTrue(config.telegram_auto_create_topics)
+        self.assertEqual(config.category_icons, {"News": "5434144690511290129"})
         self.assertEqual(config.default_mode, "direct")
         self.assertEqual(config.policies[0].feed_title, "Feed A")
         self.assertIsNone(config.policies[0].target)

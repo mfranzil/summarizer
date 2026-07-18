@@ -1,7 +1,13 @@
-_etc
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
 .venv/
+*.egg-info/
+
+# Local runtime data and credentials
 state/
 config.local.json
+
+# Local OS/editor files
+.DS_Store
