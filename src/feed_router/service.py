@@ -123,7 +123,10 @@ class RouterService:
     def run_loop(self) -> None:
         logger.info("starting polling loop interval_seconds=%s", self.config.interval_seconds)
         while True:
-            self.run_once()
+            try:
+                self.run_once()
+            except Exception:
+                logger.exception("poll failed; retrying in %s seconds", self.config.interval_seconds)
             logger.debug("sleeping for %s seconds", self.config.interval_seconds)
             time.sleep(self.config.interval_seconds)
 

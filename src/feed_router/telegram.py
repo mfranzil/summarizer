@@ -57,7 +57,14 @@ class TelegramClient:
         }
         if target.message_thread_id is not None:
             payload["message_thread_id"] = target.message_thread_id
-        self._request("sendMessage", payload)
+        try:
+            self._request("sendMessage", payload)
+        except TelegramAPIError as exc:
+            if exc.error_code != 400 or "WEBPAGE_URL_INVALID" not in exc.description.upper():
+                raise
+            logger.warning("telegram rejected link preview entry_id=%s; retrying without preview", entry.id)
+            payload["link_preview_options"] = json.dumps({"is_disabled": True})
+            self._request("sendMessage", payload)
 
     def create_forum_topic(
         self,

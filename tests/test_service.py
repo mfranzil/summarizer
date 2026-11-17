@@ -2,6 +2,8 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from src.feed_router.config import AppConfig, Policy
 from src.feed_router.models import Entry, FeedRef
@@ -88,6 +90,17 @@ def make_entry(feed_title: str) -> Entry:
 
 
 class ServiceTests(unittest.TestCase):
+    def test_loop_waits_and_retries_after_poll_failure(self) -> None:
+        service = object.__new__(RouterService)
+        service.config = SimpleNamespace(interval_seconds=300)
+        with patch.object(service, "run_once", side_effect=[RuntimeError("offline"), KeyboardInterrupt]) as poll:
+            with patch("src.feed_router.service.time.sleep") as sleep:
+                with self.assertLogs("src.feed_router.service", level="ERROR"):
+                    with self.assertRaises(KeyboardInterrupt):
+                        service.run_loop()
+        self.assertEqual(poll.call_count, 2)
+        sleep.assert_called_once_with(300)
+
     def test_entry_from_state_accepts_missing_comments_url(self) -> None:
         raw = {
             "id": 1,
